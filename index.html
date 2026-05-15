@@ -1,0 +1,516 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>観光感情マップ | 和歌山</title>
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+JP:wght@300;400;500;700&family=Space+Mono:wght@400;700&display=swap" rel="stylesheet">
+<style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --bg:#0a0f1e;--bg2:#111827;--surface:#1e2d45;
+  --border:rgba(99,179,237,0.15);--accent:#63b3ed;--accent2:#48bb78;
+  --text:#e2e8f0;--text2:#94a3b8;
+  --joy:#f6ad55;--anger:#fc8181;--sorrow:#76e4f7;--pleasure:#68d391;
+  --font-jp:'Noto Sans JP',sans-serif;--font-mono:'Space Mono',monospace;
+}
+body{font-family:var(--font-jp);background:var(--bg);color:var(--text);min-height:100vh;overflow-x:hidden}
+header{display:flex;align-items:center;justify-content:space-between;padding:1rem 2rem;border-bottom:1px solid var(--border);background:var(--bg2);position:sticky;top:0;z-index:100}
+.logo{font-family:var(--font-mono);font-size:0.8rem;color:var(--accent);letter-spacing:0.12em;text-transform:uppercase}
+.logo span{color:var(--text2)}
+.status-dot{width:8px;height:8px;border-radius:50%;background:var(--accent2);display:inline-block;margin-right:6px;animation:pulse 2s infinite}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:0.4}}
+.badge{font-size:0.72rem;color:var(--accent2);font-family:var(--font-mono)}
+.layout{display:grid;grid-template-columns:280px 1fr 300px;height:calc(100vh - 57px)}
+.sidebar-left{background:var(--bg2);border-right:1px solid var(--border);overflow-y:auto;padding:1.25rem}
+.sidebar-title{font-size:0.65rem;font-family:var(--font-mono);color:var(--text2);letter-spacing:0.15em;text-transform:uppercase;margin-bottom:1rem}
+.emo-item{display:flex;align-items:center;gap:10px;padding:0.6rem 0.75rem;border-radius:8px;margin-bottom:4px;cursor:pointer;border:1px solid transparent;transition:background 0.15s}
+.emo-item:hover,.emo-item.active{background:var(--surface)}
+.emo-item.active{border-color:var(--border)}
+.emo-dot{width:12px;height:12px;border-radius:50%;flex-shrink:0}
+.emo-label{font-size:0.85rem;font-weight:500}
+.emo-count{margin-left:auto;font-family:var(--font-mono);font-size:0.75rem;color:var(--text2)}
+.russell-card{background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:1rem;margin-bottom:1.2rem}
+.russell-grid{display:grid;grid-template-columns:1fr 1fr;gap:4px;margin-top:8px}
+.r-cell{padding:6px 8px;border-radius:6px;font-size:0.72rem;text-align:center}
+.filter-section{margin-bottom:1.2rem}
+.filter-label{font-size:0.65rem;font-family:var(--font-mono);color:var(--text2);letter-spacing:0.1em;text-transform:uppercase;margin-bottom:0.5rem}
+select{width:100%;background:var(--surface);border:1px solid var(--border);color:var(--text);border-radius:6px;padding:0.45rem 0.6rem;font-family:var(--font-jp);font-size:0.82rem;margin-bottom:0.5rem;appearance:none}
+.btn-primary{display:block;width:100%;background:var(--accent);color:#0a0f1e;border:none;border-radius:8px;padding:0.65rem;font-family:var(--font-jp);font-size:0.85rem;font-weight:700;cursor:pointer;margin-bottom:8px;transition:background 0.15s}
+.btn-primary:hover{background:#90cdf4}
+.btn-secondary{display:block;width:100%;background:transparent;color:var(--text2);border:1px solid var(--border);border-radius:8px;padding:0.6rem;font-family:var(--font-jp);font-size:0.82rem;cursor:pointer;transition:background 0.15s}
+.btn-secondary:hover{background:var(--surface)}
+.map-area{position:relative;overflow:hidden;background:var(--bg)}
+#map-canvas{width:100%;height:100%;display:block}
+.tooltip{position:absolute;background:rgba(17,24,39,0.96);border:1px solid var(--border);border-radius:10px;padding:0.75rem 1rem;font-size:0.82rem;pointer-events:none;z-index:20;min-width:200px;display:none}
+.tt-name{font-weight:700;font-size:0.9rem;margin-bottom:6px}
+.tt-row{display:flex;justify-content:space-between;margin-bottom:3px;color:var(--text2)}
+.tt-row span:last-child{color:var(--text);font-family:var(--font-mono)}
+.sidebar-right{background:var(--bg2);border-left:1px solid var(--border);overflow-y:auto;padding:1.25rem;display:flex;flex-direction:column;gap:1rem}
+.stat-card{background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:1rem}
+.stat-title{font-size:0.65rem;font-family:var(--font-mono);color:var(--text2);letter-spacing:0.12em;text-transform:uppercase;margin-bottom:0.75rem}
+.stat-big{font-family:var(--font-mono);font-size:2rem;font-weight:700;color:var(--accent);line-height:1;margin-bottom:2px}
+.stat-sub{font-size:0.75rem;color:var(--text2)}
+.bar-row{display:flex;align-items:center;gap:8px;margin-bottom:6px}
+.bar-name{font-size:0.75rem;width:28px;flex-shrink:0}
+.bar-track{flex:1;height:6px;background:rgba(255,255,255,0.05);border-radius:3px;overflow:hidden}
+.bar-fill{height:100%;border-radius:3px;transition:width 0.6s}
+.bar-pct{font-family:var(--font-mono);font-size:0.7rem;color:var(--text2);width:32px;text-align:right}
+.feed-item{display:flex;gap:10px;padding:0.6rem 0;border-bottom:1px solid var(--border);font-size:0.8rem;animation:fadeIn 0.4s ease}
+@keyframes fadeIn{from{opacity:0;transform:translateY(-4px)}to{opacity:1;transform:none}}
+.feed-dot{width:8px;height:8px;border-radius:50%;flex-shrink:0;margin-top:4px}
+.feed-loc{font-weight:500;font-size:0.82rem}
+.feed-meta{color:var(--text2);font-size:0.72rem}
+.feed-time{margin-left:auto;font-family:var(--font-mono);font-size:0.68rem;color:var(--text2);flex-shrink:0}
+.overlay{position:fixed;inset:0;background:rgba(0,0,0,0.7);z-index:200;display:none;align-items:center;justify-content:center}
+.overlay.open{display:flex}
+.modal{background:var(--bg2);border:1px solid var(--border);border-radius:14px;padding:1.75rem;width:500px;max-width:95vw;max-height:90vh;overflow-y:auto}
+.modal-title{font-family:var(--font-mono);font-size:0.75rem;color:var(--accent);letter-spacing:0.12em;text-transform:uppercase;margin-bottom:1.25rem}
+.upload-area{border:2px dashed var(--border);border-radius:10px;padding:2rem;text-align:center;cursor:pointer;transition:border-color 0.2s;margin-bottom:1rem}
+.upload-area:hover,.upload-area.over{border-color:var(--accent);background:rgba(99,179,237,0.04)}
+.preview-wrap{overflow-x:auto;max-height:200px;border:1px solid var(--border);border-radius:6px;margin-bottom:1rem}
+.preview-table{width:100%;border-collapse:collapse;font-size:0.75rem}
+.preview-table th{background:var(--surface);padding:6px 8px;text-align:left;font-family:var(--font-mono);font-size:0.65rem;color:var(--text2);position:sticky;top:0;white-space:nowrap}
+.preview-table td{padding:5px 8px;border-bottom:1px solid var(--border);white-space:nowrap}
+.modal-footer{display:flex;gap:8px;margin-top:1.25rem}
+.btn-ok{flex:1;background:var(--accent);color:#0a0f1e;border:none;border-radius:8px;padding:0.65rem;font-family:var(--font-jp);font-size:0.88rem;font-weight:700;cursor:pointer}
+.btn-ok:disabled{background:var(--surface);color:var(--text2);cursor:not-allowed}
+.btn-ng{background:transparent;color:var(--text2);border:1px solid var(--border);border-radius:8px;padding:0.65rem 1rem;font-family:var(--font-jp);font-size:0.85rem;cursor:pointer}
+.format-guide{background:rgba(99,179,237,0.05);border:1px solid rgba(99,179,237,0.2);border-radius:8px;padding:0.75rem;margin-bottom:1rem;font-size:0.75rem;line-height:1.7}
+.format-guide code{font-family:var(--font-mono);font-size:0.7rem;color:var(--accent);display:block;margin-top:4px}
+.notify{position:fixed;top:70px;right:1.5rem;border-radius:8px;padding:0.75rem 1.25rem;font-size:0.82rem;z-index:300;display:none}
+.notify.show{display:block;animation:fadeIn 0.3s ease}
+.notify.success{background:rgba(72,187,120,0.15);border:1px solid var(--accent2);color:var(--accent2)}
+.notify.error{background:rgba(252,129,129,0.15);border:1px solid #fc8181;color:#fc8181}
+.notify.info{background:rgba(99,179,237,0.12);border:1px solid var(--accent);color:var(--accent)}
+.waveform{display:flex;align-items:center;gap:2px;height:24px}
+.wb{width:3px;background:var(--accent);border-radius:2px;animation:wave 1.2s ease-in-out infinite}
+.wb:nth-child(2){animation-delay:.1s}.wb:nth-child(3){animation-delay:.2s;background:var(--joy)}
+.wb:nth-child(4){animation-delay:.15s}.wb:nth-child(5){animation-delay:.05s;background:var(--pleasure)}
+.wb:nth-child(6){animation-delay:.25s}.wb:nth-child(7){animation-delay:.1s}
+@keyframes wave{0%,100%{height:6px}50%{height:20px}}
+</style>
+</head>
+<body>
+<header>
+  <div class="logo">Kanko<span>Sense</span> / 和歌山感情マップ</div>
+  <div style="display:flex;align-items:center;gap:1.5rem">
+    <div class="waveform"><div class="wb"></div><div class="wb"></div><div class="wb"></div><div class="wb"></div><div class="wb"></div><div class="wb"></div><div class="wb"></div></div>
+    <div class="badge"><span class="status-dot"></span>Russell Circumplex Model</div>
+  </div>
+</header>
+
+<div class="layout">
+  <!-- 左サイドバー -->
+  <div class="sidebar-left">
+    <div class="sidebar-title">感情フィルター</div>
+    <div id="legend" style="margin-bottom:1.5rem"></div>
+
+    <div class="russell-card">
+      <div class="sidebar-title" style="margin-bottom:0.4rem">ラッセル感情円環モデル</div>
+      <div style="font-size:0.7rem;color:var(--text2);margin-bottom:8px">覚醒度 × 感情価 → 4象限</div>
+      <div class="russell-grid">
+        <div class="r-cell" style="background:rgba(246,173,85,0.15);color:var(--joy)">喜<br><span style="font-size:0.62rem">高覚醒・快</span></div>
+        <div class="r-cell" style="background:rgba(252,129,129,0.15);color:var(--anger)">怒<br><span style="font-size:0.62rem">高覚醒・不快</span></div>
+        <div class="r-cell" style="background:rgba(104,211,145,0.15);color:var(--pleasure)">楽<br><span style="font-size:0.62rem">低覚醒・快</span></div>
+        <div class="r-cell" style="background:rgba(118,228,247,0.15);color:var(--sorrow)">哀<br><span style="font-size:0.62rem">低覚醒・不快</span></div>
+      </div>
+      <div style="font-size:0.67rem;color:var(--text2);margin-top:8px;line-height:1.7">
+        覚醒度：ΔHR ≥ +10bpm → 高覚醒<br>感情価：ストレス値 &lt; 40 → 快
+      </div>
+    </div>
+
+    <div class="filter-section">
+      <div class="filter-label">表示エリア</div>
+      <select id="area-select">
+        <option value="all">全エリア</option>
+        <option value="kumano">南紀熊野</option>
+        <option value="koyasan">高野山</option>
+        <option value="shirahama">白浜</option>
+        <option value="kishikawa">紀ノ川</option>
+      </select>
+    </div>
+
+    <div class="filter-section">
+      <div class="filter-label">データ操作</div>
+      <button class="btn-primary" onclick="openCsv()">▲ CSVをアップロード</button>
+      <button class="btn-secondary" onclick="loadSheets()">↺ Sheetsから再読み込み</button>
+    </div>
+  </div>
+
+  <!-- マップ -->
+  <div class="map-area">
+    <canvas id="map-canvas"></canvas>
+    <div class="tooltip" id="tooltip">
+      <div class="tt-name" id="tt-name"></div>
+      <div class="tt-row"><span>推定感情</span><span id="tt-emo"></span></div>
+      <div class="tt-row"><span>象限</span><span id="tt-quad"></span></div>
+      <div class="tt-row"><span>平均心拍</span><span id="tt-hr"></span></div>
+      <div class="tt-row"><span>ΔHR（平均）</span><span id="tt-delta"></span></div>
+      <div class="tt-row"><span>ストレス値（平均）</span><span id="tt-stress"></span></div>
+      <div class="tt-row"><span>測定回数</span><span id="tt-count"></span></div>
+    </div>
+  </div>
+
+  <!-- 右サイドバー -->
+  <div class="sidebar-right">
+    <div class="sidebar-title">統計ダッシュボード</div>
+    <div class="stat-card">
+      <div class="stat-title">総測定数</div>
+      <div class="stat-big" id="total-count">0</div>
+      <div class="stat-sub">件のデータポイント</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-title">感情分布（喜怒哀楽）</div>
+      <div id="bar-chart"><div style="font-size:0.78rem;color:var(--text2)">データなし</div></div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-title">最も「喜」を感じた場所</div>
+      <div style="font-size:0.9rem;font-weight:500;margin-bottom:2px" id="top-joy">—</div>
+      <div style="font-family:var(--font-mono);font-size:0.75rem;color:var(--joy)" id="top-joy-val">データなし</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-title">最新データフィード</div>
+      <div id="feed"><div style="font-size:0.78rem;color:var(--text2);padding:0.5rem 0">CSVをアップロードしてください</div></div>
+    </div>
+  </div>
+</div>
+
+<!-- CSVモーダル -->
+<div class="overlay" id="csv-overlay">
+  <div class="modal">
+    <div class="modal-title">CSVファイルをアップロード</div>
+    <div class="format-guide">
+      <strong style="color:var(--accent)">必要な列名（1行目）</strong>
+      <code>place, hr, baseline_hr, stress, note（任意）</code>
+      ・place：観光地名　・hr：測定心拍数（bpm）<br>
+      ・baseline_hr：安静時ベースライン（bpm）<br>
+      ・stress：ストレス値（0〜100）
+    </div>
+    <div class="upload-area" id="upload-area">
+      <div style="font-size:2.5rem;margin-bottom:0.5rem">📂</div>
+      <div style="font-size:0.85rem;color:var(--text2)">CSVファイルをドラッグ＆ドロップ</div>
+      <div style="font-size:0.72rem;color:var(--text2);margin-top:6px">またはクリックして選択</div>
+      <input type="file" id="csv-input" accept=".csv" style="display:none">
+    </div>
+    <div id="csv-preview" style="display:none">
+      <div style="font-size:0.75rem;color:var(--text2);margin-bottom:6px" id="csv-summary"></div>
+      <div class="preview-wrap">
+        <table class="preview-table" id="preview-table"></table>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn-ng" onclick="closeCsv()">キャンセル</button>
+      <button class="btn-ok" id="csv-ok" disabled onclick="uploadCsv()">Google Sheetsに送信・マップに反映</button>
+    </div>
+  </div>
+</div>
+
+<div class="notify" id="notify"></div>
+
+<script>
+const API = 'https://script.google.com/macros/s/AKfycbwc9sWBkf6A3JZS129TciRq_ckOhy8bUNOZ9rzUPtHdY8jzm2-_OoemTqgKQhRz1LliQA/exec';
+
+const EMOTIONS = [
+  {id:'joy',     label:'喜', color:'#f6ad55', quadrant:'高覚醒・快'},
+  {id:'anger',   label:'怒', color:'#fc8181', quadrant:'高覚醒・不快'},
+  {id:'sorrow',  label:'哀', color:'#76e4f7', quadrant:'低覚醒・不快'},
+  {id:'pleasure',label:'楽', color:'#68d391', quadrant:'低覚醒・快'},
+];
+
+let SPOTS = [
+  {id:1,  name:'橋杭岩',       x:0.72,y:0.68, area:'kumano',   records:[]},
+  {id:2,  name:'那智の滝',     x:0.80,y:0.82, area:'kumano',   records:[]},
+  {id:3,  name:'熊野那智大社', x:0.78,y:0.76, area:'kumano',   records:[]},
+  {id:4,  name:'高野山',       x:0.28,y:0.22, area:'koyasan',  records:[]},
+  {id:5,  name:'壇上伽藍',     x:0.24,y:0.19, area:'koyasan',  records:[]},
+  {id:6,  name:'三段壁',       x:0.35,y:0.58, area:'shirahama',records:[]},
+  {id:7,  name:'白浜温泉',     x:0.30,y:0.63, area:'shirahama',records:[]},
+  {id:8,  name:'千畳敷',       x:0.32,y:0.55, area:'shirahama',records:[]},
+  {id:9,  name:'熊野速玉大社', x:0.68,y:0.74, area:'kumano',   records:[]},
+  {id:10, name:'潮岬',         x:0.65,y:0.92, area:'kumano',   records:[]},
+  {id:11, name:'粉河寺',       x:0.22,y:0.38, area:'kishikawa',records:[]},
+  {id:12, name:'吉野（奥千本）',x:0.12,y:0.14, area:'kumano',   records:[]},
+];
+
+let activeEmo = new Set(['joy','anger','sorrow','pleasure']);
+let csvRows = [];
+
+// ── 感情推定（ラッセルモデル） ──
+function estimate(hr, bl, stress) {
+  const d = parseFloat(hr) - parseFloat(bl);
+  const s = parseFloat(stress);
+  if (d >= 10 && s < 40)  return EMOTIONS[0]; // 喜
+  if (d >= 10 && s >= 40) return EMOTIONS[1]; // 怒
+  if (d < 10  && s >= 40) return EMOTIONS[2]; // 哀
+  return EMOTIONS[3];                          // 楽
+}
+
+function color(id) { return EMOTIONS.find(e=>e.id===id)?.color||'#888'; }
+
+function addRecord(place, rec) {
+  let s = SPOTS.find(s=>s.name===place);
+  if (!s) {
+    s = {id:SPOTS.length+1, name:place, x:0.25+Math.random()*0.5, y:0.25+Math.random()*0.5, area:'kumano', records:[]};
+    SPOTS.push(s);
+  }
+  s.records.push(rec);
+}
+
+function summary(spot) {
+  if (!spot.records.length) return null;
+  const cnt={};let hr=0,dl=0,st=0;
+  spot.records.forEach(r=>{ cnt[r.eid]=(cnt[r.eid]||0)+1; hr+=r.hr; dl+=r.delta; st+=r.stress; });
+  const dom = Object.entries(cnt).sort((a,b)=>b[1]-a[1])[0][0];
+  const n = spot.records.length;
+  return { dom, n, hr:Math.round(hr/n), delta:Math.round(dl/n*10)/10, stress:Math.round(st/n) };
+}
+
+// ── Google Sheets読み込み ──
+async function loadSheets() {
+  notify('読み込み中...','info');
+  try {
+    const res = await fetch(API);
+    const data = await res.json();
+    if (!Array.isArray(data)||!data.length) { notify('データなし','info'); return; }
+    SPOTS.forEach(s=>s.records=[]);
+    data.forEach(r=>{
+      if (!r.place||!r.hr) return;
+      const hr=parseFloat(r.hr), bl=parseFloat(r.baseline_hr)||70, st=parseFloat(r.stress)||30;
+      const emo=estimate(hr,bl,st);
+      addRecord(r.place,{hr,delta:hr-bl,stress:st,eid:emo.id,label:emo.label,quad:emo.quadrant});
+    });
+    updateAll();
+    notify(`${data.length}件を読み込みました`,'success');
+  } catch(e) { notify('エラー: '+e.message,'error'); }
+}
+
+async function post(payload) {
+  await fetch(API,{method:'POST',body:JSON.stringify(payload),headers:{'Content-Type':'application/json'},mode:'no-cors'});
+}
+
+// ── 凡例 ──
+function buildLegend() {
+  const cnt={};
+  SPOTS.forEach(s=>{ const sm=summary(s); if(sm) cnt[sm.dom]=(cnt[sm.dom]||0)+1; });
+  document.getElementById('legend').innerHTML = EMOTIONS.map(e=>`
+    <div class="emo-item ${activeEmo.has(e.id)?'active':''}" data-e="${e.id}" onclick="toggleEmo('${e.id}')">
+      <div class="emo-dot" style="background:${e.color}"></div>
+      <span class="emo-label" style="color:${e.color}">${e.label}（${e.quadrant}）</span>
+      <span class="emo-count">${cnt[e.id]||0}</span>
+    </div>`).join('');
+}
+
+function toggleEmo(id) {
+  if(activeEmo.has(id)) activeEmo.delete(id); else activeEmo.add(id);
+  document.querySelectorAll(`[data-e="${id}"]`).forEach(el=>el.classList.toggle('active'));
+  drawMap();
+}
+
+// ── 棒グラフ ──
+function buildBar() {
+  const total = SPOTS.reduce((s,sp)=>s+sp.records.length,0);
+  if (!total) { document.getElementById('bar-chart').innerHTML='<div style="font-size:0.78rem;color:var(--text2)">データなし</div>'; return; }
+  const cnt={};
+  SPOTS.forEach(s=>s.records.forEach(r=>cnt[r.eid]=(cnt[r.eid]||0)+1));
+  document.getElementById('bar-chart').innerHTML = EMOTIONS.map(e=>{
+    const pct=Math.round((cnt[e.id]||0)/total*100);
+    return `<div class="bar-row">
+      <span class="bar-name" style="color:${e.color}">${e.label}</span>
+      <div class="bar-track"><div class="bar-fill" style="width:${pct}%;background:${e.color}"></div></div>
+      <span class="bar-pct">${pct}%</span></div>`;
+  }).join('');
+}
+
+function updateStats() {
+  document.getElementById('total-count').textContent = SPOTS.reduce((s,sp)=>s+sp.records.length,0);
+  buildBar(); buildLegend();
+  let top=null, topN=0;
+  SPOTS.forEach(s=>{ const n=s.records.filter(r=>r.eid==='joy').length; if(n>topN){top=s;topN=n;} });
+  document.getElementById('top-joy').textContent = top?top.name:'—';
+  document.getElementById('top-joy-val').textContent = top?`喜 ${topN}件`:'データなし';
+}
+
+function pushFeed(label, quad, hr, stress, place) {
+  const c = EMOTIONS.find(e=>e.label===label)?.color||'#888';
+  const feed = document.getElementById('feed');
+  const item = document.createElement('div');
+  item.className = 'feed-item';
+  item.innerHTML = `
+    <div class="feed-dot" style="background:${c}"></div>
+    <div><div class="feed-loc">${place}</div>
+    <div class="feed-meta">${label}（${quad}）· HR:${hr}bpm · ストレス:${stress}</div></div>
+    <span class="feed-time">追加</span>`;
+  const empty = feed.querySelector('div[style]');
+  if (empty) feed.innerHTML = '';
+  feed.insertBefore(item, feed.firstChild);
+  if (feed.children.length > 8) feed.removeChild(feed.lastChild);
+}
+
+function updateAll() { updateStats(); drawMap(); }
+
+// ── Canvas ──
+const canvas = document.getElementById('map-canvas');
+const ctx = canvas.getContext('2d');
+let W, H;
+
+function resize() {
+  W=canvas.offsetWidth; H=canvas.offsetHeight;
+  canvas.width=W; canvas.height=H; drawMap();
+}
+
+function drawMap() {
+  ctx.clearRect(0,0,W,H);
+  ctx.strokeStyle='rgba(99,179,237,0.06)'; ctx.lineWidth=1;
+  for(let x=0;x<W;x+=60){ctx.beginPath();ctx.moveTo(x,0);ctx.lineTo(x,H);ctx.stroke()}
+  for(let y=0;y<H;y+=60){ctx.beginPath();ctx.moveTo(0,y);ctx.lineTo(W,y);ctx.stroke()}
+  const ol=[[0.05,0.05],[0.45,0.02],[0.60,0.05],[0.55,0.30],[0.45,0.45],[0.50,0.60],[0.40,0.72],[0.55,0.80],[0.65,0.95],[0.85,0.98],[0.90,0.90],[0.75,0.70],[0.82,0.55],[0.70,0.40],[0.75,0.20],[0.65,0.08],[0.50,0.04]];
+  ctx.beginPath(); ctx.moveTo(ol[0][0]*W,ol[0][1]*H);
+  ol.forEach(([x,y])=>ctx.lineTo(x*W,y*H));
+  ctx.closePath(); ctx.fillStyle='rgba(30,45,69,0.55)'; ctx.fill();
+  ctx.strokeStyle='rgba(99,179,237,0.18)'; ctx.lineWidth=1.5; ctx.stroke();
+  ctx.fillStyle='rgba(99,179,237,0.22)'; ctx.font='500 10px "Space Mono"';
+  ctx.fillText('KOYASAN',0.14*W,0.30*H);
+  ctx.fillText('SHIRAHAMA',0.12*W,0.68*H);
+  ctx.fillText('KUMANO',0.58*W,0.62*H);
+
+  const af = document.getElementById('area-select').value;
+  SPOTS.forEach(s=>{
+    if(af!=='all'&&s.area!==af) return;
+    const sm=summary(s), px=s.x*W, py=s.y*H;
+    if(!sm){
+      ctx.beginPath();ctx.arc(px,py,5,0,Math.PI*2);
+      ctx.fillStyle='rgba(148,163,184,0.25)';ctx.fill();
+      ctx.fillStyle='rgba(148,163,184,0.4)';ctx.font='10px "Noto Sans JP"';ctx.textAlign='center';
+      ctx.fillText(s.name,px,py+16);ctx.textAlign='left';
+      return;
+    }
+    if(!activeEmo.has(sm.dom)) return;
+    const c=color(sm.dom), sz=8+Math.min(sm.n*1.5,22);
+    const g=ctx.createRadialGradient(px,py,0,px,py,sz*3);
+    g.addColorStop(0,c+'44');g.addColorStop(1,c+'00');
+    ctx.beginPath();ctx.arc(px,py,sz*3,0,Math.PI*2);ctx.fillStyle=g;ctx.fill();
+    ctx.beginPath();ctx.arc(px,py,sz+3,0,Math.PI*2);ctx.strokeStyle=c+'55';ctx.lineWidth=1.5;ctx.stroke();
+    ctx.beginPath();ctx.arc(px,py,sz,0,Math.PI*2);ctx.fillStyle=c+'cc';ctx.fill();
+    ctx.strokeStyle=c;ctx.lineWidth=1.5;ctx.stroke();
+    ctx.fillStyle=c;ctx.font='bold 11px "Noto Sans JP"';ctx.textAlign='center';
+    ctx.fillText(EMOTIONS.find(e=>e.id===sm.dom)?.label||'',px,py+4);
+    ctx.fillStyle='#e2e8f0';ctx.font='11px "Noto Sans JP"';
+    ctx.fillText(s.name,px,py+sz+14);ctx.textAlign='left';
+  });
+}
+
+// ── Tooltip ──
+canvas.addEventListener('mousemove',e=>{
+  const rect=canvas.getBoundingClientRect();
+  const mx=e.clientX-rect.left,my=e.clientY-rect.top;
+  const af=document.getElementById('area-select').value;
+  const hit=SPOTS.find(s=>{
+    if(af!=='all'&&s.area!==af) return false;
+    const sm=summary(s);
+    if(!sm||!activeEmo.has(sm.dom)) return false;
+    return Math.hypot(s.x*W-mx,s.y*H-my)<20;
+  });
+  const tt=document.getElementById('tooltip');
+  if(hit){
+    const sm=summary(hit), emo=EMOTIONS.find(e=>e.id===sm.dom);
+    document.getElementById('tt-name').textContent=hit.name;
+    document.getElementById('tt-name').style.color=emo.color;
+    document.getElementById('tt-emo').textContent=emo.label;
+    document.getElementById('tt-quad').textContent=emo.quadrant;
+    document.getElementById('tt-hr').textContent=sm.hr+' bpm';
+    document.getElementById('tt-delta').textContent=(sm.delta>=0?'+':'')+sm.delta+' bpm';
+    document.getElementById('tt-stress').textContent=sm.stress;
+    document.getElementById('tt-count').textContent=sm.n+' 回';
+    tt.style.display='block';
+    let tx=e.clientX-rect.left+16,ty=e.clientY-rect.top-20;
+    if(tx+220>W)tx-=240;if(ty<0)ty=10;
+    tt.style.left=tx+'px';tt.style.top=ty+'px';
+    canvas.style.cursor='pointer';
+  }else{tt.style.display='none';canvas.style.cursor='default'}
+});
+canvas.addEventListener('mouseleave',()=>{document.getElementById('tooltip').style.display='none'});
+document.getElementById('area-select').addEventListener('change',drawMap);
+
+// ── CSV ──
+function openCsv(){
+  csvRows=[];
+  document.getElementById('csv-preview').style.display='none';
+  document.getElementById('csv-ok').disabled=true;
+  document.getElementById('csv-input').value='';
+  document.getElementById('csv-overlay').classList.add('open');
+}
+function closeCsv(){document.getElementById('csv-overlay').classList.remove('open');}
+document.getElementById('csv-overlay').addEventListener('click',e=>{if(e.target===document.getElementById('csv-overlay'))closeCsv()});
+
+const ua=document.getElementById('upload-area');
+ua.addEventListener('click',()=>document.getElementById('csv-input').click());
+ua.addEventListener('dragover',e=>{e.preventDefault();ua.classList.add('over')});
+ua.addEventListener('dragleave',()=>ua.classList.remove('over'));
+ua.addEventListener('drop',e=>{e.preventDefault();ua.classList.remove('over');if(e.dataTransfer.files[0])readCSV(e.dataTransfer.files[0])});
+document.getElementById('csv-input').addEventListener('change',e=>{if(e.target.files[0])readCSV(e.target.files[0])});
+
+function readCSV(file) {
+  const reader=new FileReader();
+  reader.onload=e=>{
+    const lines=e.target.result.split('\n').filter(l=>l.trim());
+    if(lines.length<2){notify('データが見つかりません','error');return}
+    const headers=lines[0].split(',').map(h=>h.trim().replace(/"/g,'').toLowerCase());
+    csvRows=lines.slice(1).map(line=>{
+      const vals=line.split(',');
+      const obj={};
+      headers.forEach((h,i)=>obj[h]=(vals[i]||'').trim().replace(/"/g,''));
+      return obj;
+    }).filter(r=>r.place&&(r.hr||r.heart_rate));
+    if(!csvRows.length){notify('有効なデータが見つかりません','error');return}
+    document.getElementById('csv-summary').textContent=`${csvRows.length}件を検出（先頭5件プレビュー）`;
+    const cols=['place','hr','baseline_hr','stress'];
+    document.getElementById('preview-table').innerHTML=
+      `<thead><tr>${cols.map(c=>`<th>${c}</th>`).join('')}<th>推定感情</th><th>象限</th></tr></thead>
+      <tbody>${csvRows.slice(0,5).map(r=>{
+        const hr=parseFloat(r.hr||r.heart_rate)||0,bl=parseFloat(r.baseline_hr)||70,st=parseFloat(r.stress)||30;
+        const emo=estimate(hr,bl,st);
+        return `<tr>${cols.map(c=>`<td>${r[c]||'—'}</td>`).join('')}
+          <td style="color:${emo.color};font-weight:700">${emo.label}</td>
+          <td style="font-size:0.7rem;color:var(--text2)">${emo.quadrant}</td></tr>`;
+      }).join('')}</tbody>`;
+    document.getElementById('csv-preview').style.display='block';
+    document.getElementById('csv-ok').disabled=false;
+  };
+  reader.readAsText(file,'UTF-8');
+}
+
+async function uploadCsv(){
+  const btn=document.getElementById('csv-ok');
+  btn.disabled=true;btn.textContent='送信中...';
+  let ok=0;
+  for(const r of csvRows){
+    const hr=parseFloat(r.hr||r.heart_rate)||0,bl=parseFloat(r.baseline_hr)||70,st=parseFloat(r.stress)||30;
+    const place=r.place||'不明', emo=estimate(hr,bl,st);
+    try{
+      await post({place,hr,baseline_hr:bl,stress:st,note:r.note||''});
+      addRecord(place,{hr,delta:hr-bl,stress:st,eid:emo.id,label:emo.label,quad:emo.quadrant});
+      pushFeed(emo.label,emo.quadrant,hr,st,place);
+      ok++;
+    }catch(e){}
+  }
+  updateAll();closeCsv();
+  notify(`${ok}件を送信・マップに反映しました`,'success');
+  btn.disabled=false;btn.textContent='Google Sheetsに送信・マップに反映';
+}
+
+// ── 通知 ──
+function notify(msg,type='info'){
+  const el=document.getElementById('notify');
+  el.textContent=msg;el.className=`notify show ${type}`;
+  setTimeout(()=>el.classList.remove('show'),3500);
+}
+
+// ── 初期化 ──
+buildLegend();
+new ResizeObserver(resize).observe(canvas);
+resize();
+setTimeout(loadSheets,500);
+</script>
+</body>
+</html>
